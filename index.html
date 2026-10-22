@@ -169,7 +169,7 @@ function rangeFor(k){
  return days}
 async function loadRange(k){
  var days=rangeFor(k);R[k]=null;render();
- try{var j=await api(null,"&from="+days[0]+"&to="+days[days.length-1]);R[k]={days:days,meals:j.meals};$("status").textContent=""}catch(e){$("status").textContent="불러오기 실패: "+(e.message||e)}
+ try{var j=await api(null,"&from="+days[0]+"&to="+days[days.length-1]);if(!j.meals)throw new Error("서버 코드가 예전 버전입니다. Apps Script를 새 버전으로 배포해 주세요");R[k]={days:days,meals:j.meals};$("status").textContent=""}catch(e){$("status").textContent="불러오기 실패: "+(e.message||e);R[k]={days:days,meals:[]}}
  render()}
 function rangeHtml(k){
  var d=R[k];
