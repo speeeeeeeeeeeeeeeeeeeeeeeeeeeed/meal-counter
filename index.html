@@ -110,15 +110,32 @@ $("regsave").onclick=async function(){
 };
 $("manualgo").onclick=function(){handleCard($("manual").value)};
 
-$("start").onclick=async function(){
+var scanning=false,busy=false;
+async function startScan(auto){
+ if(scanning||busy)return;
  if(!("NDEFReader" in window)){$("nfcmsg").innerHTML='<span class="warn">이 브라우저는 NFC를 지원하지 않습니다.</span> 안드로이드 크롬에서 열어 주세요.';return}
+ busy=true;
  try{
   var rd=new NDEFReader();await rd.scan();
+  scanning=true;
   $("nfcmsg").textContent="대기 중… 카드를 대 보세요. (화면을 켜 둔 상태로 사용)";$("start").textContent="읽는 중";
   rd.onreading=function(ev){handleCard(ev.serialNumber)};
   rd.onreadingerror=function(){setResult('<div class="n warn">카드를 읽지 못했습니다</div><div class="sub">다시 대 보세요. 계속 안 되면 카드 방식이 웹과 맞지 않을 수 있습니다.</div>')};
- }catch(e){$("nfcmsg").innerHTML='<span class="warn">시작 실패: '+esc(e&&e.name||"")+'</span> '+esc(e&&e.message||"")}
-};
+ }catch(e){
+  scanning=false;$("start").textContent="카드 읽기 시작";
+  if(auto===true){$("nfcmsg").textContent="화면을 한 번 터치하면 카드 읽기가 시작됩니다."}
+  else{$("nfcmsg").innerHTML='<span class="warn">시작 실패: '+esc(e&&e.name||"")+'</span> '+esc(e&&e.message||"")}
+ }
+ busy=false;
+}
+$("start").onclick=function(){startScan(false)};
+function autoStart(){
+ if(scanning||!CFG.url)return;
+ try{navigator.permissions.query({name:"nfc"}).then(function(p){if(p.state==="granted")startScan(true);else $("nfcmsg").textContent="화면을 한 번 터치하면 카드 읽기가 시작됩니다."}).catch(function(){$("nfcmsg").textContent="화면을 한 번 터치하면 카드 읽기가 시작됩니다."})}catch(e){}
+}
+document.addEventListener("click",function(){if(!scanning&&tab==="scan"&&CFG.url)startScan(true)});
+document.addEventListener("visibilitychange",function(){if(!document.hidden){scanning=false;busy=false;autoStart()}});
+autoStart();
 
 function render(){
  if(tab==="today"){var l=S.today||[];
