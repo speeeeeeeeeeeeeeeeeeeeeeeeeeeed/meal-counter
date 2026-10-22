@@ -58,8 +58,8 @@ td:last-child,th:last-child{text-align:right}
 <section id="set" class="hide">
 <div class="card">
 <div><b>구글 시트 연결</b></div>
-<div class="sub">웹앱 URL</div><input id="cfgurl" placeholder="https://script.google.com/macros/s/.../exec">
-<div class="sub">비밀 키 (Code.gs의 KEY와 같은 값)</div><input id="cfgkey" placeholder="meal1234">
+<div class="sub">웹앱 URL</div><input id="cfgurl" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec">
+<div class="sub">비밀 키 (Code.gs의 KEY와 같은 값)</div><input id="cfgkey" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="meal1234">
 <button class="main" id="cfgsave">저장</button>
 </div>
 </section>
@@ -69,7 +69,7 @@ td:last-child,th:last-child{text-align:right}
 <a href="#" id="adminlink">관리자</a>
 <div id="adminbox" class="hide card" style="margin-top:10px;text-align:left">
 <div class="sub">관리자 암호</div>
-<input id="adminpw" type="password" autocomplete="off">
+<input id="adminpw" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
 <button class="main" id="adminok">확인</button>
 </div>
 </div>
@@ -153,9 +153,9 @@ function enterAdmin(){$("tabs").classList.remove("hide");$("adminbox").classList
 function exitAdmin(){ADMIN=null;try{sessionStorage.removeItem("mc_admin")}catch(e){}$("tabs").classList.add("hide");$("adminlink").textContent="관리자";show("scan");setIdle()}
 $("adminlink").onclick=function(e){e.preventDefault();if(ADMIN){exitAdmin()}else{$("adminbox").classList.toggle("hide");$("adminpw").focus()}};
 $("adminok").onclick=async function(){
- var pw=$("adminpw").value;if(!pw)return;ADMIN=pw;
+ var pw=$("adminpw").value.trim();if(!pw)return;ADMIN=pw;
  try{S=await api();try{sessionStorage.setItem("mc_admin",pw)}catch(e){}$("adminpw").value="";$("status").textContent="";enterAdmin();show("scan")}
- catch(e){ADMIN=null;$("status").textContent="관리자 확인 실패: "+(e.message||e)}
+ catch(e){ADMIN=null;$("status").innerHTML="관리자 확인 실패: "+esc(e.message||e)+'<br><a href="#" id="fixcfg" style="color:var(--ac)">연결 설정(URL·비밀 키) 다시 입력</a>';$("fixcfg").onclick=function(ev){ev.preventDefault();$("adminbox").classList.add("hide");show("set")}}
 };
 
 function render(){
