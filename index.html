@@ -37,7 +37,7 @@ td:last-child,th:last-child{text-align:right}
 <body>
 <main>
 <nav id="tabs" class="hide">
-<button data-t="scan" class="on">스캔</button><button data-t="today">오늘</button><button data-t="week">이번 주</button><button data-t="people">명단</button><button data-t="set">설정</button>
+<button data-t="scan" class="on">스캔</button><button data-t="today">오늘</button><button data-t="week">주간</button><button data-t="month">월간</button><button data-t="people">명단</button><button data-t="set">설정</button>
 </nav>
 
 <section id="scan">
@@ -53,6 +53,7 @@ td:last-child,th:last-child{text-align:right}
 
 <section id="today" class="hide"></section>
 <section id="week" class="hide"></section>
+<section id="month" class="hide"></section>
 <section id="people" class="hide"></section>
 
 <section id="set" class="hide">
@@ -86,19 +87,19 @@ function normUid(s){return String(s||"").replace(/[^0-9a-zA-Z]/g,"").toUpperCase
 var DN=["월","화","수","목","금","토","일"];
 var IDLE='<div class="ic">📲</div><div class="idle">카드를<br>대 주세요</div>';
 
-function show(t){tab=t;["scan","today","week","people","set"].forEach(function(s){$(s).classList.toggle("hide",s!==t)});
+function show(t){tab=t;["scan","today","week","month","people","set"].forEach(function(s){$(s).classList.toggle("hide",s!==t)});
 document.querySelectorAll("#tabs button").forEach(function(b){b.classList.toggle("on",b.dataset.t===t)});
-if(t==="today"||t==="week"||t==="people")refresh();render()}
+if(t==="today"||t==="people")refresh();if(t==="week"||t==="month")loadRange(t);render()}
 $("tabs").addEventListener("click",function(e){var t=e.target.dataset&&e.target.dataset.t;if(t)show(t)});
 
 function setResult(h,keep){$("result").innerHTML=h;clearTimeout(rt);if(!keep)rt=setTimeout(setIdle,4000)}
 function setIdle(){$("result").innerHTML=IDLE;$("reg").classList.add("hide");pending=null}
 
-async function api(o){
+async function api(o,q){
  if(!CFG.url){throw new Error("설정에서 구글 시트 주소를 먼저 입력해 주세요")}
  var r;
  if(o){o.key=CFG.key;if(ADMIN)o.admin=ADMIN;r=await fetch(CFG.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(o)})}
- else{r=await fetch(CFG.url+"?key="+encodeURIComponent(CFG.key)+"&admin="+encodeURIComponent(ADMIN||""))}
+ else{r=await fetch(CFG.url+"?key="+encodeURIComponent(CFG.key)+"&admin="+encodeURIComponent(ADMIN||"")+(q||""))}
  var j=await r.json();
  if(j.error){throw new Error(j.error==="auth"?"비밀 키 또는 관리자 암호가 맞지 않습니다":j.error==="admin"?"관리자만 등록할 수 있습니다":j.error)}
  return j}
@@ -158,15 +159,37 @@ $("adminok").onclick=async function(){
  catch(e){ADMIN=null;$("status").innerHTML="관리자 확인 실패: "+esc(e.message||e)+'<br><a href="#" id="fixcfg" style="color:var(--ac)">연결 설정(URL·비밀 키) 다시 입력</a>';$("fixcfg").onclick=function(ev){ev.preventDefault();$("adminbox").classList.add("hide");show("set")}}
 };
 
+var off={week:0,month:0},R={week:null,month:null};
+function pad(n){return n<10?"0"+n:""+n}
+function ymd(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+function rangeFor(k){
+ var n=new Date(),days=[];
+ if(k==="week"){var dow=(n.getDay()+6)%7,m=new Date(n.getFullYear(),n.getMonth(),n.getDate()-dow+off.week*7);for(var i=0;i<7;i++)days.push(ymd(new Date(m.getFullYear(),m.getMonth(),m.getDate()+i)))}
+ else{var f=new Date(n.getFullYear(),n.getMonth()+off.month,1),last=new Date(f.getFullYear(),f.getMonth()+1,0).getDate();for(var j=1;j<=last;j++)days.push(ymd(new Date(f.getFullYear(),f.getMonth(),j)))}
+ return days}
+async function loadRange(k){
+ var days=rangeFor(k);R[k]=null;render();
+ try{var j=await api(null,"&from="+days[0]+"&to="+days[days.length-1]);R[k]={days:days,meals:j.meals};$("status").textContent=""}catch(e){$("status").textContent="불러오기 실패: "+(e.message||e)}
+ render()}
+function rangeHtml(k){
+ var d=R[k];
+ var nav='<div style="display:flex;gap:6px;margin-bottom:12px"><button class="ghost" data-nav="prev-'+k+'">◀ 이전</button><button class="ghost" data-nav="now-'+k+'">'+(k==="week"?"이번 주":"이번 달")+'</button><button class="ghost" data-nav="next-'+k+'">다음 ▶</button></div>';
+ if(!d)return nav+'<div class="card sub">불러오는 중…</div>';
+ var byP={},byD={};d.meals.forEach(function(m){byP[m.name]=(byP[m.name]||0)+1;byD[m.date]=(byD[m.date]||0)+1});
+ var rows=d.days.map(function(x){var dt=new Date(x+"T00:00:00");return'<tr><td>'+x.slice(5)+' ('+DN[(dt.getDay()+6)%7]+')</td><td>'+(byD[x]||0)+'명</td></tr>'}).join("");
+ var pr=Object.keys(byP).sort(function(a,b){return byP[b]-byP[a]}).map(function(n){return'<tr><td>'+esc(n)+'</td><td>'+byP[n]+'회</td></tr>'}).join("");
+ var label=k==="week"?d.days[0]+" ~ "+d.days[6]:d.days[0].slice(0,4)+"년 "+Number(d.days[0].slice(5,7))+"월";
+ return nav+'<div class="card"><div class="sub">'+label+' 식사 연인원</div><div class="big">'+d.meals.length+'명</div></div><div class="card"><table><tr><th>날짜</th><th>인원</th></tr>'+rows+'</table></div><div class="card"><table><tr><th>이름</th><th>횟수</th></tr>'+(pr||'<tr><td class="sub" colspan="2">기록 없음</td></tr>')+'</table></div><button class="ghost" data-csv="'+k+'">이 기간 기록 내려받기 (CSV)</button>'}
+function csv(k){var d=R[k];if(!d)return;var ls=["날짜,이름,시각"].concat(d.meals.slice().sort(function(a,b){return a.date+a.time<b.date+b.time?-1:1}).map(function(m){return[m.date,m.name,m.time].join(",")}));
+ var a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+ls.join("\n")],{type:"text/csv"}));a.download="meals_"+d.days[0]+"_"+d.days[d.days.length-1]+".csv";a.click()}
+document.addEventListener("click",function(e){var t=e.target,nv=t.getAttribute&&t.getAttribute("data-nav");
+ if(nv){var p=nv.split("-"),k=p[1];off[k]=p[0]==="prev"?off[k]-1:p[0]==="next"?off[k]+1:0;loadRange(k);return}
+ var c=t.getAttribute&&t.getAttribute("data-csv");if(c)csv(c)});
+
 function render(){
  if(tab==="today"){var l=S.today||[];
   $("today").innerHTML='<div class="card"><div class="sub">오늘 식사 인원</div><div class="big">'+l.length+'명</div></div><div class="card"><table><tr><th>이름</th><th>시각</th></tr>'+(l.map(function(m){return'<tr><td>'+esc(m.name)+'</td><td>'+esc(m.time)+'</td></tr>'}).join("")||'<tr><td class="sub" colspan="2">아직 없습니다</td></tr>')+'</table></div>'}
- if(tab==="week"){var days=S.days||[],wk=S.week||[],byP={};
-  var rows=days.map(function(d,i){var c=wk.filter(function(m){return m.date===d});c.forEach(function(m){byP[m.name]=(byP[m.name]||0)+1});return'<tr><td>'+d.slice(5)+' ('+DN[i]+')</td><td>'+c.length+'명</td></tr>'}).join("");
-  var pr=Object.keys(byP).sort(function(a,b){return byP[b]-byP[a]}).map(function(n){return'<tr><td>'+esc(n)+'</td><td>'+byP[n]+'회</td></tr>'}).join("");
-  $("week").innerHTML='<div class="card"><div class="sub">'+(days[0]||"")+' ~ '+(days[6]||"")+' 식사 연인원</div><div class="big">'+wk.length+'명</div></div><div class="card"><table><tr><th>날짜</th><th>인원</th></tr>'+rows+'</table></div><div class="card"><table><tr><th>이름</th><th>횟수</th></tr>'+(pr||'<tr><td class="sub" colspan="2">기록 없음</td></tr>')+'</table></div><button class="ghost" id="csv">이번 주 기록 내려받기 (CSV)</button>';
-  var b=$("csv");if(b)b.onclick=function(){var ls=["날짜,이름,시각"].concat(wk.map(function(m){return[m.date,m.name,m.time].join(",")}));
-   var a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+ls.join("\n")],{type:"text/csv"}));a.download="meals_"+(days[0]||"week")+".csv";a.click()}}
+ if(tab==="week"||tab==="month"){$(tab).innerHTML=rangeHtml(tab)}
  if(tab==="people"){var ks=Object.keys(S.people||{});
   $("people").innerHTML='<div class="card"><div class="sub" style="margin-bottom:6px">등록 인원 '+ks.length+'명</div><table><tr><th>이름</th><th>카드 번호</th></tr>'+(ks.map(function(k){return'<tr><td>'+esc(S.people[k])+'</td><td class="sub">'+esc(k)+'</td></tr>'}).join("")||'<tr><td class="sub" colspan="2">카드를 대면 이름을 등록할 수 있습니다</td></tr>')+'</table></div>'}
 }
