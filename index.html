@@ -51,7 +51,7 @@ td:last-child,th:last-child{text-align:right}
 <b>등록되지 않은 카드입니다</b>
 <div class="sub" id="reguid"></div>
 <input id="regname" placeholder="이름 입력" autocomplete="off">
-<button class="main" id="regsave">등록하고 식사 기록</button>
+<button class="main" id="regsave">등록</button>
 </div>
 </section>
 
@@ -114,6 +114,7 @@ async function refresh(){if(!ADMIN)return;try{S=await api();$("status").textCont
 function showRes(j){
  $("reg").classList.add("hide");pending=null;
  if(j.status==="ok"){if(navigator.vibrate)navigator.vibrate(150);setResult('<div class="ic">✅</div><div class="n">'+esc(j.name)+'</div><div class="sub">식사 기록 완료 · 오늘 '+j.count+'번째</div>')}
+ else if(j.status==="registered"){setResult('<div class="ic">🆕</div><div class="n">'+esc(j.name)+'</div><div class="sub">등록 완료 (식사 기록은 되지 않았습니다)</div>')}
  else if(j.status==="dup"){setResult('<div class="ic">⚠️</div><div class="n warn">'+esc(j.name)+'</div><div class="sub">오늘 이미 기록되었습니다 ('+esc(j.time)+')</div>')}
  else if(j.status==="unknown"){
   if(ADMIN){pending=j.uid;$("reguid").textContent="카드 번호: "+j.uid;$("regname").value="";$("reg").classList.remove("hide");setResult('<div class="ic">🆕</div><div class="n warn">미등록 카드</div><div class="sub">아래에 이름을 입력해 등록하세요</div>',true)}
