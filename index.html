@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#1d6b4f">
 <title>식사 인원 카운터</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--sub:#6b6a66;--line:#e2e0d9;--ac:#1d6b4f;--acx:#fff;--warn:#b4531a}
 @media (prefers-color-scheme:dark){:root{--bg:#161715;--card:#222320;--tx:#efeee9;--sub:#a3a199;--line:#34352f;--ac:#4cc29a;--acx:#10231b;--warn:#f0a06b;color-scheme:dark}}
@@ -126,6 +129,8 @@ $("regsave").onclick=async function(){
  try{showRes(await api({action:"register",uid:pending,name:n}))}catch(e){setResult('<div class="ic">❌</div><div class="n warn">등록 실패</div><div class="sub">'+esc(e.message||e)+'</div>')}
 };
 
+var wl=null;
+async function keepAwake(){try{if("wakeLock" in navigator&&!wl){wl=await navigator.wakeLock.request("screen");wl.addEventListener("release",function(){wl=null})}}catch(e){wl=null}}
 var scanning=false,busy=false;
 async function startScan(auto){
  if(scanning||busy)return;
@@ -133,13 +138,14 @@ async function startScan(auto){
  busy=true;
  try{
   var rd=new NDEFReader();await rd.scan();
-  scanning=true;$("nfcmsg").textContent="";if($("result").querySelector(".idle"))setIdle();
+  scanning=true;keepAwake();$("nfcmsg").textContent="";if($("result").querySelector(".idle"))setIdle();
   rd.onreading=function(ev){handleCard(ev.serialNumber)};
   rd.onreadingerror=function(){setResult('<div class="ic">❓</div><div class="n warn">읽지 못했습니다</div><div class="sub">다시 대 주세요</div>')};
  }catch(e){
   scanning=false;if($("result").querySelector(".idle"))setIdle();
   if(auto===true){$("nfcmsg").textContent="화면을 한 번 터치해 주세요"}
-  else{$("nfcmsg").innerHTML='<span class="warn">시작 실패: '+esc(e&&e.name||"")+'</span> '+esc(e&&e.message||"")}
+  else{$("nfcmsg").innerHTML='<span class="warn">시작 실패: '+esc(e&&e.name||"")+'</span> '+esc(e&&e.message||"");
+   setResult('<div class="ic">⚠️</div><div class="n warn">카드 읽기를 시작하지 못했습니다</div><div class="sub">'+esc(e&&e.name||"")+'<br>'+esc(e&&e.message||"")+'</div>',true)}
  }
  busy=false;
 }
@@ -148,8 +154,8 @@ function autoStart(){
  var hint=function(){$("nfcmsg").textContent="화면을 한 번 터치해 주세요"};
  try{navigator.permissions.query({name:"nfc"}).then(function(p){if(p.state==="granted")startScan(true);else hint()}).catch(hint)}catch(e){hint()}
 }
-document.addEventListener("click",function(){if(!scanning&&tab==="scan"&&CFG.url)startScan(true)});
-document.addEventListener("visibilitychange",function(){if(!document.hidden){scanning=false;busy=false;setIdle();autoStart()}});
+document.addEventListener("click",function(){if(!scanning&&tab==="scan"&&CFG.url)startScan(false)});
+document.addEventListener("visibilitychange",function(){if(!document.hidden){scanning=false;busy=false;setIdle();autoStart();keepAwake()}});
 
 function enterAdmin(){$("tabs").classList.remove("hide");$("adminbox").classList.add("hide");$("adminlink").textContent="관리자 모드 종료"}
 function exitAdmin(){ADMIN=null;try{sessionStorage.removeItem("mc_admin")}catch(e){}$("tabs").classList.add("hide");$("adminlink").textContent="관리자";show("scan");setIdle()}
@@ -202,6 +208,7 @@ setIdle();
 if(ADMIN){enterAdmin()}
 if(!CFG.url){show("set")}else{autoStart()}
 })();
+if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
 </script>
 </body>
 </html>
