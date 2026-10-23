@@ -46,6 +46,7 @@ td:last-child,th:last-child{text-align:right}
 <section id="scan">
 <div class="card" id="result"></div>
 <p class="sub" id="nfcmsg" style="text-align:center"></p>
+<button class="ghost hide" id="installbtn" style="margin-bottom:12px">📲 앱으로 설치하기</button>
 <div class="card hide" id="reg">
 <b>등록되지 않은 카드입니다</b>
 <div class="sub" id="reguid"></div>
@@ -65,6 +66,7 @@ td:last-child,th:last-child{text-align:right}
 <div class="sub">웹앱 URL</div><input id="cfgurl" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec">
 <div class="sub">비밀 키 (Code.gs의 KEY와 같은 값)</div><input id="cfgkey" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="meal1234">
 <button class="main" id="cfgsave">저장</button>
+<button class="ghost" id="cfglink" style="margin-top:8px">다른 휴대폰용 설정 링크 복사</button>
 </div>
 </section>
 
@@ -201,6 +203,14 @@ function render(){
   $("people").innerHTML='<div class="card"><div class="sub" style="margin-bottom:6px">등록 인원 '+ks.length+'명</div><table><tr><th>이름</th><th>카드 번호</th></tr>'+(ks.map(function(k){return'<tr><td>'+esc(S.people[k])+'</td><td class="sub">'+esc(k)+'</td></tr>'}).join("")||'<tr><td class="sub" colspan="2">카드를 대면 이름을 등록할 수 있습니다</td></tr>')+'</table></div>'}
 }
 
+(function(){try{var h=location.hash.replace(/^#/,"");if(h.indexOf("u=")>=0){var q={};h.split("&").forEach(function(x){var i=x.indexOf("=");if(i>0)q[x.slice(0,i)]=decodeURIComponent(x.slice(i+1))});
+ if(q.u){CFG.url=q.u.trim();CFG.key=(q.k||"").trim();localStorage.setItem("mc_url",CFG.url);localStorage.setItem("mc_key",CFG.key);history.replaceState(null,"",location.pathname+location.search);$("status").textContent="연결 설정이 완료되었습니다."}}}catch(e){}})();
+$("cfglink").onclick=function(){var l=location.origin+location.pathname+"#u="+encodeURIComponent(CFG.url)+"&k="+encodeURIComponent(CFG.key);
+ try{navigator.clipboard.writeText(l).then(function(){$("status").textContent="링크를 복사했습니다. 카카오톡 등에 붙여넣어 보내세요."},function(){prompt("아래 링크를 복사하세요",l)})}catch(e){prompt("아래 링크를 복사하세요",l)}};
+var dip=null;
+window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();dip=e;$("installbtn").classList.remove("hide")});
+window.addEventListener("appinstalled",function(){$("installbtn").classList.add("hide")});
+$("installbtn").onclick=function(){if(dip){dip.prompt();dip=null;$("installbtn").classList.add("hide")}};
 $("cfgurl").value=CFG.url;$("cfgkey").value=CFG.key;
 $("cfgsave").onclick=function(){CFG.url=$("cfgurl").value.trim();CFG.key=$("cfgkey").value.trim();try{localStorage.setItem("mc_url",CFG.url);localStorage.setItem("mc_key",CFG.key)}catch(e){}$("status").textContent="저장했습니다.";show("scan");autoStart()};
 
