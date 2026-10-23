@@ -62,8 +62,7 @@ td:last-child,th:last-child{text-align:right}
 
 <section id="set" class="hide">
 <div class="card">
-<div><b>구글 시트 연결</b></div>
-<div class="sub">웹앱 URL</div><input id="cfgurl" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec">
+<div><b>연결 설정</b></div>
 <div class="sub">비밀 키 (Code.gs의 KEY와 같은 값)</div><input id="cfgkey" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="meal1234">
 <button class="main" id="cfgsave">저장</button>
 <button class="ghost" id="cfglink" style="margin-top:8px">다른 휴대폰용 설정 링크 복사</button>
@@ -84,8 +83,9 @@ td:last-child,th:last-child{text-align:right}
 <script>
 (function(){
 var S={today:[],people:{},days:[],week:[]},tab="scan",pending=null,last={uid:"",t:0},ADMIN=null,rt=null;
-var CFG={url:"",key:""};
-try{CFG.url=localStorage.getItem("mc_url")||"";CFG.key=localStorage.getItem("mc_key")||"";ADMIN=sessionStorage.getItem("mc_admin")||null}catch(e){}
+var DEFAULT_URL="https://script.google.com/macros/s/AKfycbyuHJV_LgsNk5CjfsxZ1yscAV3xI38wM4OKDmPXBOd5LKNtM6iC3JGYh_7KEt1Oeel5kw/exec";
+var CFG={url:DEFAULT_URL,key:""};
+try{CFG.key=localStorage.getItem("mc_key")||"";ADMIN=sessionStorage.getItem("mc_admin")||null}catch(e){}
 var $=function(i){return document.getElementById(i)};
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function normUid(s){return String(s||"").replace(/[^0-9a-zA-Z]/g,"").toUpperCase()}
@@ -102,7 +102,7 @@ function setResult(h,keep){$("result").innerHTML=h;clearTimeout(rt);if(!keep)rt=
 function setIdle(){$("result").innerHTML=(scanning?IDLE:TOUCH);$("reg").classList.add("hide");pending=null}
 
 async function api(o,q){
- if(!CFG.url){throw new Error("설정에서 구글 시트 주소를 먼저 입력해 주세요")}
+ if(!CFG.key){throw new Error("설정에서 비밀 키를 먼저 입력해 주세요")}
  var r;
  if(o){o.key=CFG.key;if(ADMIN)o.admin=ADMIN;r=await fetch(CFG.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(o)})}
  else{r=await fetch(CFG.url+"?key="+encodeURIComponent(CFG.key)+"&admin="+encodeURIComponent(ADMIN||"")+(q||""))}
@@ -152,11 +152,11 @@ async function startScan(auto){
  busy=false;
 }
 function autoStart(){
- if(scanning||!CFG.url)return;
+ if(scanning||!CFG.key)return;
  var hint=function(){$("nfcmsg").textContent="화면을 한 번 터치해 주세요"};
  try{navigator.permissions.query({name:"nfc"}).then(function(p){if(p.state==="granted")startScan(true);else hint()}).catch(hint)}catch(e){hint()}
 }
-document.addEventListener("click",function(){if(!scanning&&tab==="scan"&&CFG.url)startScan(false)});
+document.addEventListener("click",function(){if(!scanning&&tab==="scan"&&CFG.key)startScan(false)});
 document.addEventListener("visibilitychange",function(){if(!document.hidden){scanning=false;busy=false;setIdle();autoStart();keepAwake()}});
 
 function enterAdmin(){$("tabs").classList.remove("hide");$("adminbox").classList.add("hide");$("adminlink").textContent="관리자 모드 종료"}
@@ -203,20 +203,20 @@ function render(){
   $("people").innerHTML='<div class="card"><div class="sub" style="margin-bottom:6px">등록 인원 '+ks.length+'명</div><table><tr><th>이름</th><th>카드 번호</th></tr>'+(ks.map(function(k){return'<tr><td>'+esc(S.people[k])+'</td><td class="sub">'+esc(k)+'</td></tr>'}).join("")||'<tr><td class="sub" colspan="2">카드를 대면 이름을 등록할 수 있습니다</td></tr>')+'</table></div>'}
 }
 
-(function(){try{var h=location.hash.replace(/^#/,"");if(h.indexOf("u=")>=0){var q={};h.split("&").forEach(function(x){var i=x.indexOf("=");if(i>0)q[x.slice(0,i)]=decodeURIComponent(x.slice(i+1))});
- if(q.u){CFG.url=q.u.trim();CFG.key=(q.k||"").trim();localStorage.setItem("mc_url",CFG.url);localStorage.setItem("mc_key",CFG.key);history.replaceState(null,"",location.pathname+location.search);$("status").textContent="연결 설정이 완료되었습니다."}}}catch(e){}})();
-$("cfglink").onclick=function(){var l=location.origin+location.pathname+"#u="+encodeURIComponent(CFG.url)+"&k="+encodeURIComponent(CFG.key);
+(function(){try{var h=location.hash.replace(/^#/,"");if(h.indexOf("k=")>=0){var q={};h.split("&").forEach(function(x){var i=x.indexOf("=");if(i>0)q[x.slice(0,i)]=decodeURIComponent(x.slice(i+1))});
+ if(q.k){CFG.key=q.k.trim();localStorage.setItem("mc_key",CFG.key);history.replaceState(null,"",location.pathname+location.search);$("status").textContent="연결 설정이 완료되었습니다."}}}catch(e){}})();
+$("cfglink").onclick=function(){var l=location.origin+location.pathname+"#k="+encodeURIComponent(CFG.key);
  try{navigator.clipboard.writeText(l).then(function(){$("status").textContent="링크를 복사했습니다. 카카오톡 등에 붙여넣어 보내세요."},function(){prompt("아래 링크를 복사하세요",l)})}catch(e){prompt("아래 링크를 복사하세요",l)}};
 var dip=null;
 window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();dip=e;$("installbtn").classList.remove("hide")});
 window.addEventListener("appinstalled",function(){$("installbtn").classList.add("hide")});
 $("installbtn").onclick=function(){if(dip){dip.prompt();dip=null;$("installbtn").classList.add("hide")}};
-$("cfgurl").value=CFG.url;$("cfgkey").value=CFG.key;
-$("cfgsave").onclick=function(){CFG.url=$("cfgurl").value.trim();CFG.key=$("cfgkey").value.trim();try{localStorage.setItem("mc_url",CFG.url);localStorage.setItem("mc_key",CFG.key)}catch(e){}$("status").textContent="저장했습니다.";show("scan");autoStart()};
+$("cfgkey").value=CFG.key;
+$("cfgsave").onclick=function(){CFG.key=$("cfgkey").value.trim();try{localStorage.setItem("mc_key",CFG.key)}catch(e){}$("status").textContent="저장했습니다.";show("scan");autoStart()};
 
 setIdle();
 if(ADMIN){enterAdmin()}
-if(!CFG.url){show("set")}else{autoStart()}
+if(!CFG.key){show("set")}else{autoStart()}
 })();
 if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
 </script>
