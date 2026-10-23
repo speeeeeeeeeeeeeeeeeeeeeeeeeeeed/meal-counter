@@ -86,6 +86,7 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;
 function normUid(s){return String(s||"").replace(/[^0-9a-zA-Z]/g,"").toUpperCase()}
 var DN=["월","화","수","목","금","토","일"];
 var IDLE='<div class="ic">📲</div><div class="idle">카드를<br>대 주세요</div>';
+var TOUCH='<div class="ic">👆</div><div class="idle warn">화면을 한 번<br>터치해 주세요</div><div class="sub" style="margin-top:12px">터치하면 카드 읽기가 시작됩니다</div>';
 
 function show(t){tab=t;["scan","today","week","month","people","set"].forEach(function(s){$(s).classList.toggle("hide",s!==t)});
 document.querySelectorAll("#tabs button").forEach(function(b){b.classList.toggle("on",b.dataset.t===t)});
@@ -93,7 +94,7 @@ if(t==="today"||t==="people")refresh();if(t==="week"||t==="month")loadRange(t);r
 $("tabs").addEventListener("click",function(e){var t=e.target.dataset&&e.target.dataset.t;if(t)show(t)});
 
 function setResult(h,keep){$("result").innerHTML=h;clearTimeout(rt);if(!keep)rt=setTimeout(setIdle,4000)}
-function setIdle(){$("result").innerHTML=IDLE;$("reg").classList.add("hide");pending=null}
+function setIdle(){$("result").innerHTML=(scanning?IDLE:TOUCH);$("reg").classList.add("hide");pending=null}
 
 async function api(o,q){
  if(!CFG.url){throw new Error("설정에서 구글 시트 주소를 먼저 입력해 주세요")}
@@ -115,7 +116,7 @@ function showRes(j){
  }
 }
 async function handleCard(raw){
- var uid=normUid(raw);if(!uid)return;
+ var uid=normUid(raw);if(!uid){setResult('<div class="ic">❓</div><div class="n warn">카드 번호를 읽지 못했습니다</div><div class="sub">다시 대 주세요</div>');return}
  var now=Date.now();if(uid===last.uid&&now-last.t<3000)return;last={uid:uid,t:now};
  setResult('<div class="ic">⏳</div><div class="sub">확인 중…</div>',true);
  try{showRes(await api({action:"scan",uid:uid}))}catch(e){setResult('<div class="ic">❌</div><div class="n warn">저장 실패</div><div class="sub">'+esc(e.message||e)+'</div>')}
@@ -132,11 +133,11 @@ async function startScan(auto){
  busy=true;
  try{
   var rd=new NDEFReader();await rd.scan();
-  scanning=true;$("nfcmsg").textContent="";
+  scanning=true;$("nfcmsg").textContent="";if($("result").querySelector(".idle"))setIdle();
   rd.onreading=function(ev){handleCard(ev.serialNumber)};
   rd.onreadingerror=function(){setResult('<div class="ic">❓</div><div class="n warn">읽지 못했습니다</div><div class="sub">다시 대 주세요</div>')};
  }catch(e){
-  scanning=false;
+  scanning=false;if($("result").querySelector(".idle"))setIdle();
   if(auto===true){$("nfcmsg").textContent="화면을 한 번 터치해 주세요"}
   else{$("nfcmsg").innerHTML='<span class="warn">시작 실패: '+esc(e&&e.name||"")+'</span> '+esc(e&&e.message||"")}
  }
@@ -148,7 +149,7 @@ function autoStart(){
  try{navigator.permissions.query({name:"nfc"}).then(function(p){if(p.state==="granted")startScan(true);else hint()}).catch(hint)}catch(e){hint()}
 }
 document.addEventListener("click",function(){if(!scanning&&tab==="scan"&&CFG.url)startScan(true)});
-document.addEventListener("visibilitychange",function(){if(!document.hidden){scanning=false;busy=false;autoStart()}});
+document.addEventListener("visibilitychange",function(){if(!document.hidden){scanning=false;busy=false;setIdle();autoStart()}});
 
 function enterAdmin(){$("tabs").classList.remove("hide");$("adminbox").classList.add("hide");$("adminlink").textContent="관리자 모드 종료"}
 function exitAdmin(){ADMIN=null;try{sessionStorage.removeItem("mc_admin")}catch(e){}$("tabs").classList.add("hide");$("adminlink").textContent="관리자";show("scan");setIdle()}
